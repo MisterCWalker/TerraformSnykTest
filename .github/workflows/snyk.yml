@@ -18,7 +18,7 @@ jobs:
         uses: hashicorp/setup-terraform@v2
 
       - name: Set up Snyk
-        uses: snyk/actions/setup
+        uses: snyk/actions/setup@master
         with:
           snykToken: ${{ secrets.SNYK_TOKEN }}
 
