@@ -45,8 +45,9 @@ resource "aws_instance" "example" {
 
   monitoring = true
 
-  ebs_block_device {
-    device_name = "/dev/sda1"
+  root_block_device {
+    volume_type = "gp2"
+    volume_size = 10
     encrypted   = true
   }
 
