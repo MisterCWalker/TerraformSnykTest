@@ -7,6 +7,9 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
 jobs:
   security:
     runs-on: ubuntu-latest
@@ -19,8 +22,9 @@ jobs:
 
       - name: Set up Snyk
         uses: snyk/actions/setup@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+      - name: Snyk Auth
+        run: snyk auth
 
       - name: Run Snyk to check Terraform files
         run: snyk iac test
