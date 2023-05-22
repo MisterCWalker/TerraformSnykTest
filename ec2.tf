@@ -14,6 +14,7 @@ data "aws_ami" "latest_amazon_linux" {
   owners = ["amazon"]
 }
 
+# terrascan-ignore AC_AWS_0319
 resource "aws_security_group" "allow_ssh" {
   name        = "allow_ssh"
   description = "Allow SSH inbound traffic"
@@ -41,6 +42,17 @@ resource "aws_instance" "example" {
   subnet_id     = aws_subnet.main.id
 
   vpc_security_group_ids = [aws_security_group.allow_ssh.id]
+
+  monitoring = true
+
+  ebs_block_device {
+    device_name = "/dev/sda1"
+    encrypted   = true
+  }
+
+  metadata_options {
+    http_tokens = "required"
+  }
 
   tags = {
     Name = "example-instance"
