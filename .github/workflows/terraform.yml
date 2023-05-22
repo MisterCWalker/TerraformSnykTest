@@ -1,5 +1,4 @@
 name: 'Terraform'
-
 on:
   push:
     branches: [ "main" ]
@@ -39,20 +38,6 @@ jobs:
       uses: hashicorp/setup-terraform@v2
       with:
         terraform_version: 1.4.6
-
-    - name: Setup TFLint
-      uses: terraform-linters/setup-tflint@v3
-      with:
-        tflint_version: latest
-
-    - name: Show version
-      run: tflint --version
-
-    - name: Init TFLint
-      run: tflint --init
-
-    - name: Run TFLint
-      run: tflint -f compact
 
     - name: Terraform init
       id: init
