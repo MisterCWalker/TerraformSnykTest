@@ -39,6 +39,20 @@ jobs:
       with:
         terraform_version: 1.4.6
 
+    - name: Setup TFLint
+      uses: terraform-linters/setup-tflint@v3
+      with:
+        tflint_version: 0.46.1
+
+    - name: Show version
+      run: tflint --version
+
+    - name: Init TFLint
+      run: tflint --init
+
+    - name: Run TFLint
+      run: tflint -f compact
+
     - name: Terraform init
       id: init
       run: terraform init -backend-config=prod.backend -no-color
