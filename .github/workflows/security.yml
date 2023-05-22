@@ -24,7 +24,7 @@ jobs:
         uses: snyk/actions/setup@master
 
       - name: Snyk Auth
-        run: snyk auth
+        run: snyk auth SNYK_TOKEN
 
       - name: Run Snyk to check Terraform files
         run: snyk iac test
