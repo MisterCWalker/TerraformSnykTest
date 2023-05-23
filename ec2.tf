@@ -38,7 +38,7 @@ resource "aws_security_group" "allow_ssh" {
 
 resource "aws_instance" "example" {
   ami           = data.aws_ami.latest_amazon_linux.id
-  instance_type = "t3.micro"
+  instance_type = "t2.micro"
   subnet_id     = aws_subnet.main.id
 
   vpc_security_group_ids = [aws_security_group.allow_ssh.id]
