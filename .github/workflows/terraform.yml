@@ -41,7 +41,7 @@ jobs:
 
     - name: Terraform init
       id: init
-      run: terraform init -backend-config=prod.backend.tfbackend -backend-config="bucket=${{ secrets.BUCKET_TF_STATE}}" -no-color
+      run: terraform init -backend-config=prod.backend.tfbackend -backend-config="bucket=$BUCKET_TF_STATE" -no-color
 
     - name: Terraform format
       id: fmt
