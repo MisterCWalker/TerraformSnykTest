@@ -1,0 +1,4 @@
+dynamodb_table = "terraform-state-lock"
+encrypt        = "true"
+key            = "prod/terraform.tfstate"
+region         = "us-east-1"
