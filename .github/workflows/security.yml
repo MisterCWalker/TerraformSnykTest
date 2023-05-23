@@ -1,0 +1,30 @@
+# The Infrastructure as Code Action also supports integrating with GitHub Code Scanning and can show issues in the
+# GitHub Security tab. When run, a snyk.sarif file will be generated which can be uploaded to GitHub Code Scanning.
+name: Snyk Security Scan
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Set up Snyk
+        uses: snyk/actions/setup@master
+
+      - name: Snyk Auth
+        run: snyk auth ${{ secrets.SNYK_TOKEN }}
+
+      - name: Run Snyk to check Terraform files
+        run: snyk iac test
