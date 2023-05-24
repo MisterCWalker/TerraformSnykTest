@@ -37,3 +37,10 @@ resource "aws_apigatewayv2_deployment" "example" {
     aws_apigatewayv2_route.example
   ]
 }
+
+resource "aws_apigatewayv2_stage" "example" {
+  api_id        = aws_apigatewayv2_api.myhttpapi.id
+  name          = "example-stage"
+  deployment_id = aws_apigatewayv2_deployment.example.id
+  auto_deploy   = true
+}
