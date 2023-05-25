@@ -4,5 +4,5 @@ resource "aws_lambda_function" "my_lambda" {
   role          = aws_iam_role.iam_for_lambda.arn
   runtime       = "nodejs14.x"
 
-  filename = "lambda/lambda-package.zip"
+  filename = "lambda/function.zip"
 }
