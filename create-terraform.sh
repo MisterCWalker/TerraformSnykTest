@@ -48,3 +48,74 @@ else
         exit 1
     fi
 fi
+
+# Setup OpenID Connect for GitHub
+OPEN_ID_PROVIDER_ARN="arn:aws:iam::$ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
+
+# Check if OpenID Connect provider already exists
+if aws iam get-open-id-connect-provider --open-id-connect-provider-arn $OPEN_ID_PROVIDER_ARN --region $REGION >/dev/null 2>&1; then
+    echo "OpenID Connect provider '$OPEN_ID_PROVIDER_ARN' already exists"
+else
+    if aws iam create-open-id-connect-provider --url https://token.actions.githubusercontent.com --client-id-list sts.amazonaws.com --thumbprint-list 6938FD4D98BAB03FAADB97B34396831E3780AEA1 --region $REGION >/dev/null 2>&1; then
+        echo "OpenID Connect provider created successfully"
+    else
+        echo "Failed to create OpenID Connect provider"
+        exit 1
+    fi
+fi
+
+# Create the Role for OIDC
+ROLE_NAME="OIDC"
+POLICY_ARN="arn:aws:iam::aws:policy/AdministratorAccess"
+
+# Prompt for variables for OIDC Role
+read -p "Enter the repository owner/organization [MisterCWalker]: " REPO_OWNER
+REPO_OWNER=${REPO_OWNER:-"MisterCWalker"}
+
+read -p "Enter the repository name [TerraformSnykTest]: " REPO
+REPO=${REPO:-"TerraformSnykTest"}
+
+TRUST_POLICY=$(cat <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+      {
+          "Effect": "Allow",
+          "Principal": {
+              "Federated": "arn:aws:iam::$ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
+          },
+          "Action": "sts:AssumeRoleWithWebIdentity",
+          "Condition": {
+              "StringLike": {
+                "token.actions.githubusercontent.com:sub": "repo:$REPO_OWNER/$REPO:*"
+              },
+              "StringEquals": {
+                  "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+              }
+          }
+      }
+  ]
+}
+EOF
+)
+
+# Check if the role already exists
+if aws iam get-role --role-name $ROLE_NAME --region $REGION >/dev/null 2>&1; then
+    echo "Role '$ROLE_NAME' already exists"
+else
+    aws iam create-role --role-name $ROLE_NAME --assume-role-policy-document "$TRUST_POLICY" --region $REGION
+    echo "Role '$ROLE_NAME' created successfully"
+fi
+
+# Check if the policy is already attached to the role
+if aws iam list-attached-role-policies --role-name $ROLE_NAME --region $REGION --query "AttachedPolicies[?PolicyArn=='$POLICY_ARN']" | grep $POLICY_ARN >/dev/null 2>&1; then
+    echo "Policy '$POLICY_ARN' is already attached to '$ROLE_NAME'"
+else
+    # Attach the policy to the role
+    if aws iam attach-role-policy --role-name $ROLE_NAME --policy-arn $POLICY_ARN --region $REGION >/dev/null 2>&1; then
+        echo "Policy '$POLICY_ARN' attached successfully to '$ROLE_NAME'"
+    else
+        echo "Failed to attach policy '$POLICY_ARN' to '$ROLE_NAME'"
+        exit 1
+    fi
+fi
