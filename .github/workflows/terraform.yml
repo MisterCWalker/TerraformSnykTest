@@ -9,12 +9,16 @@ permissions:
   contents: read  # This is required for actions/checkout
 
 env:
-  # Verbosity setting for Terraform logs
-  TF_LOG: ERROR
-  # S3 bucket for the Terraform state
-  BUCKET_TF_STATE: ${{ secrets.BUCKET_TF_STATE}}
-  # github.token secret, a built-in secret in GitHub.
+  # GH - github.token secret, a built-in secret in GitHub.
   GITHUB_TOKEN: ${{ github.token }}
+  # TF - Verbosity setting for Terraform logs
+  TF_LOG: ERROR
+  # AWS - S3 bucket for the Terraform state
+  BUCKET_TF_STATE: ${{ secrets.BUCKET_TF_STATE}}
+  # AWS - IAM role
+  AWS_ROLE: ${{ secrets.AWS_ROLE }}
+  # AWS - Region
+  AWS_REGION: ${{ vars.AWS_REGION }}
 
 jobs:
   terraform:
@@ -37,6 +41,15 @@ jobs:
       uses: hashicorp/setup-terraform@v2
       with:
         terraform_version: 1.4.6
+
+    - name: configure aws credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: $AWS_ROLE
+        aws-region: $AWS_REGION
+
+    - name: Run AWS CLI command to get Security Token Service
+      run: aws sts get-caller-identity
 
     - name: Terraform init
       id: init
