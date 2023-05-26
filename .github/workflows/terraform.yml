@@ -4,23 +4,23 @@ on:
     branches: [ "main" ]
   pull_request:
 
-permissions:
-  id-token: write # This is required for requesting the JWT
-  contents: read  # This is required for actions/checkout
-
 env:
-  # Verbosity setting for Terraform logs
-  TF_LOG: ERROR
-  # S3 bucket for the Terraform state
-  BUCKET_TF_STATE: ${{ secrets.BUCKET_TF_STATE}}
-  # github.token secret, a built-in secret in GitHub.
+  # GH - github.token secret, a built-in secret in GitHub.
   GITHUB_TOKEN: ${{ github.token }}
+  # TF - Verbosity setting for Terraform logs
+  TF_LOG: ERROR
+  # AWS - S3 bucket for the Terraform state
+  BUCKET_TF_STATE: ${{ secrets.BUCKET_TF_STATE}}
 
 jobs:
   terraform:
     name: 'Terraform'
     runs-on: ubuntu-latest
     environment: production
+
+    permissions:
+      id-token: write # This is required for requesting the JWT
+      contents: read  # This is required for actions/checkout
 
     # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
     defaults:
@@ -37,6 +37,15 @@ jobs:
       uses: hashicorp/setup-terraform@v2
       with:
         terraform_version: 1.4.6
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ vars.AWS_ROLE }}
+        aws-region: ${{ vars.AWS_REGION }}
+
+    - name: Run AWS CLI command to get Security Token Service
+      run: aws sts get-caller-identity
 
     - name: Terraform init
       id: init
