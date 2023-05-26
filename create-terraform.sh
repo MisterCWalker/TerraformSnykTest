@@ -119,3 +119,34 @@ else
         exit 1
     fi
 fi
+
+# Get OIDC Role Arn
+ROLE_ARN=$(aws iam get-role --role-name OIDC --query 'Role.Arn' --output text)
+
+# Display bucket and role outputs for GitHub Variables
+echo "Bucket = '$BUCKET_NAME'"
+echo "Role Arn = '$ROLE_ARN'"
+
+# Question for setting the GitHub secret BUCKET_TF_STATE
+echo "Do you want to set the secret BUCKET_TF_STATE to the value of $BUCKET_NAME in the repository $REPO_OWNER/$REPO? [Y/n]"
+read response
+
+if [[ $response =~ ^([yY][eE][sS]|[yY])$ ]]
+then
+    echo -n "$BUCKET_NAME" | gh secret set BUCKET_TF_STATE -R "$REPO_OWNER/$REPO"
+    echo "Secret has been set."
+else
+    echo "Operation cancelled."
+fi
+
+# Question for setting the GitHub variable AWS_ROLE
+echo "Do you want to set the variable AWS_ROLE to the value of $ROLE_ARN in the repository $REPO_OWNER/$REPO? [Y/n]"
+read response
+
+if [[ $response =~ ^([yY][eE][sS]|[yY])$ ]]
+then
+    echo -n "$ROLE_ARN" | gh variable set AWS_ROLE -R "$REPO_OWNER/$REPO"
+    echo "Variable has been set."
+else
+    echo "Operation cancelled."
+fi
