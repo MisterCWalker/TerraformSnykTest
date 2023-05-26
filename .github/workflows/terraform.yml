@@ -36,7 +36,7 @@ jobs:
     # Read .terrafrom-version file
     - name: Read .terraform-version
       id: read-tf-version
-      run: echo "::set-output name=version::$(cat .terraform-version)"
+      run: echo "version=$(cat .terraform-version)" >> $GITHUB_OUTPUT
 
     # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
     - name: Setup Terraform
