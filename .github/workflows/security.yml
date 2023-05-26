@@ -15,8 +15,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install Terraform
+      # Read .terrafrom-version file
+      - name: Read .terraform-version
+        id: read-tf-version
+        run: echo "version=$(cat .terraform-version)" >> $GITHUB_OUTPUT
+
+      # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
+      - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ steps.read-tf-version.outputs.version }}
 
       - name: Set up Snyk
         uses: snyk/actions/setup@master
