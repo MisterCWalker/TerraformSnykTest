@@ -17,8 +17,6 @@ env:
   BUCKET_TF_STATE: ${{ secrets.BUCKET_TF_STATE}}
   # AWS - IAM role
   AWS_ROLE: ${{ secrets.AWS_ROLE }}
-  # AWS - Region
-  AWS_REGION: ${{ vars.AWS_REGION }}
 
 jobs:
   terraform:
@@ -46,7 +44,7 @@ jobs:
       uses: aws-actions/configure-aws-credentials@v2
       with:
         role-to-assume: $AWS_ROLE
-        aws-region: $AWS_REGION
+        aws-region: ${{ vars.AWS_REGION }}
 
     - name: Run AWS CLI command to get Security Token Service
       run: aws sts get-caller-identity
