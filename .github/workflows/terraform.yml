@@ -11,8 +11,6 @@ env:
   TF_LOG: ERROR
   # AWS - S3 bucket for the Terraform state
   BUCKET_TF_STATE: ${{ secrets.BUCKET_TF_STATE}}
-  # AWS - IAM role
-  AWS_ROLE: ${{ secrets.AWS_ROLE }}
 
 jobs:
   terraform:
@@ -43,7 +41,7 @@ jobs:
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
-        role-to-assume: $AWS_ROLE
+        role-to-assume: ${{ vars.AWS_ROLE }}
         aws-region: ${{ vars.AWS_REGION }}
 
     - name: Run AWS CLI command to get Security Token Service
