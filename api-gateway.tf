@@ -10,7 +10,7 @@ locals {
 
 module "apigateway_v2" {
   source  = "terraform-aws-modules/apigateway-v2/aws"
-  version = "2.2.2"
+  #version = "2.2.2"
 
   name          = "dev-http"
   description   = "My awesome HTTP API Gateway"
