@@ -33,8 +33,10 @@ module "apigateway_v2" {
   # Routes and integrations
   integrations = {
     "$default" = {
-      lambda_arn       = aws_lambda_function.my_lambda.arn
-      integration_type = "AWS_PROXY"
+      lambda_arn             = aws_lambda_function.my_lambda.arn
+      integration_type       = "AWS_PROXY"
+      payload_format_version = "2.0"
+      timeout_milliseconds   = 30000
     }
   }
 
