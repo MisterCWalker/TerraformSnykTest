@@ -1,6 +1,6 @@
 # Module version of above
 locals {
-  domain_name = "cmcloudlab502.info" #trimsuffix(data.aws_route53_zone.this.name, ".")
+  domain_name = "cmcloudlab1681.info" #trimsuffix(data.aws_route53_zone.this.name, ".")
   subdomain   = "complete-http"
 }
 

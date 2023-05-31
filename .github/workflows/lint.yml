@@ -13,6 +13,8 @@ jobs:
       matrix:
         os: [ubuntu-latest]
 
+    name: tflint
+
     steps:
     - uses: actions/checkout@v3
       name: Checkout source code
@@ -39,3 +41,46 @@ jobs:
 
     - name: Run TFLint
       run: tflint --only=terraform_deprecated_interpolation --only=terraform_deprecated_index --only=terraform_unused_declarations --only=terraform_comment_syntax --only=terraform_documented_outputs --only=terraform_documented_variables --only=terraform_typed_variables --only=terraform_module_pinned_source --only=terraform_naming_convention --only=terraform_required_version --only=terraform_required_providers --only=terraform_standard_module_structure --only=terraform_workspace_remote
+
+  validate:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+
+    name: terraform fmt check
+    outputs:
+      CHECK_STATUS: "${{ env.CHECK_STATUS }}"
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+
+      # Read .terrafrom-version file
+      - name: Read .terraform-version
+        id: read-tf-version
+        run: echo "version=$(cat .terraform-version)" >> $GITHUB_OUTPUT
+
+      # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ steps.read-tf-version.outputs.version }}
+
+      - name: Validate terraform fmt
+        run: |
+          set +e
+
+          echo "CHECK_STATUS=0" >> $GITHUB_ENV
+          terraform fmt -check
+          FMT_STATUS=$(echo $?)
+          if [[ $FMT_STATUS -ne 0 ]]; then
+            echo "❌ terraform fmt failed - ${changed_file}" >> $GITHUB_STEP_SUMMARY
+            echo "CHECK_STATUS=1" >> $GITHUB_ENV
+          fi
+
+      - name: Process check
+        if: always()
+        run: exit $CHECK_STATUS
