@@ -1,0 +1,49 @@
+name: 'Terraform'
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  fmt:
+    name: fmt
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write # This is required for requesting the JWT
+      contents: read  # This is required for actions/checkout
+
+    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    # Checkout the repository to the GitHub Actions runner
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    # Read .terrafrom-version file
+    - name: Read .terraform-version
+      id: read-tf-version
+      run: echo "version=$(cat .terraform-version)" >> $GITHUB_OUTPUT
+
+    # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: ${{ steps.read-tf-version.outputs.version }}
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ vars.AWS_ROLE }}
+        aws-region: ${{ vars.AWS_REGION }}
+
+    - name: Run AWS CLI command to get Security Token Service
+      run: aws sts get-caller-identity
+
+    - name: Terraform format
+      id: fmt
+      run: terraform fmt -check -no-color
