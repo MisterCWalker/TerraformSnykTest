@@ -52,6 +52,10 @@ resource "aws_lambda_permission" "apigw_lambda" {
 resource "aws_api_gateway_domain_name" "domain" {
   regional_certificate_arn = module.acm.acm_certificate_arn
   domain_name              = local.domain_name
+
+  endpoint_configuration {
+    types = ["REGIONAL"]
+  }
 }
 
 resource "aws_api_gateway_deployment" "deployment" {
@@ -130,10 +134,14 @@ module "acm" {
 
 resource "aws_route53_record" "api_rest" {
   zone_id = aws_route53_zone.zone.zone_id
-  name    = local.subdomain
-  type    = "CNAME"
-  ttl     = 300
-  records = [aws_api_gateway_domain_name.domain.regional_domain_name]
+  name    = aws_api_gateway_domain_name.domain.domain_name
+  type    = "A"
+
+  alias {
+    evaluate_target_health = true
+    name                   = aws_api_gateway_domain_name.domain.regional_domain_name
+    zone_id                = aws_api_gateway_domain_name.domain.regional_zone_id
+  }
 }
 
 #############
