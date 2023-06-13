@@ -1,118 +1,9 @@
 data "aws_caller_identity" "current" {}
 locals {
-  domain_name = "cmcloudlab0626.info" #trimsuffix(data.aws_route53_zone.this.name, ".")
-  walker_name = "acg.aws.misterwalker.co.uk"
-  subdomain   = "complete-http"
-  subrest     = "rest"
+  domain_name = "acg.aws.misterwalker.co.uk"
+  subdomain   = "api"
   account_id  = data.aws_caller_identity.current.account_id
 }
-
-###################
-# HTTP API Gateway
-###################
-
-module "apigateway_v2" {
-  source  = "terraform-aws-modules/apigateway-v2/aws"
-  version = "2.2.2"
-
-  name          = "dev-http"
-  description   = "My awesome HTTP API Gateway"
-  protocol_type = "HTTP"
-
-  create_default_stage = true
-
-  domain_name                 = local.domain_name
-  domain_name_certificate_arn = module.acm.acm_certificate_arn
-
-  default_stage_access_log_destination_arn = aws_cloudwatch_log_group.logs.arn
-  default_stage_access_log_format          = "$context.identity.sourceIp - - [$context.requestTime] \"$context.httpMethod $context.routeKey $context.protocol\" $context.status $context.responseLength $context.requestId $context.integrationErrorMessage"
-
-  default_route_settings = {
-    detailed_metrics_enabled = true
-    throttling_burst_limit   = 100
-    throttling_rate_limit    = 100
-  }
-
-  # Routes and integrations
-  integrations = {
-    "$default" = {
-      lambda_arn             = aws_lambda_function.my_lambda.arn
-      integration_type       = "AWS_PROXY"
-      payload_format_version = "2.0"
-      timeout_milliseconds   = 30000
-    }
-  }
-
-}
-
-######
-# ACM
-######
-
-data "aws_route53_zone" "this" {
-  name = local.domain_name
-}
-
-data "aws_route53_zone" "mw" {
-  name = local.walker_name
-}
-
-module "acm" {
-  source  = "terraform-aws-modules/acm/aws"
-  version = "~> 3.0"
-
-  domain_name               = local.domain_name
-  zone_id                   = data.aws_route53_zone.this.id
-  subject_alternative_names = ["${local.subdomain}.${local.domain_name}"]
-}
-
-module "walker" {
-  source  = "terraform-aws-modules/acm/aws"
-  version = "~> 3.0"
-
-  domain_name               = local.walker_name
-  zone_id                   = data.aws_route53_zone.mw.id
-  subject_alternative_names = ["${local.subrest}.${local.walker_name}"]
-}
-
-##########
-# Route53
-##########
-
-resource "aws_route53_record" "api" {
-  zone_id = data.aws_route53_zone.this.zone_id
-  name    = local.subdomain
-  type    = "A"
-
-  alias {
-    name                   = module.apigateway_v2.apigatewayv2_domain_name_configuration[0].target_domain_name
-    zone_id                = module.apigateway_v2.apigatewayv2_domain_name_configuration[0].hosted_zone_id
-    evaluate_target_health = false
-  }
-}
-
-resource "aws_route53_record" "api_rest" {
-  zone_id = data.aws_route53_zone.mw.zone_id
-  name    = local.subrest
-  type    = "A"
-
-  alias {
-    evaluate_target_health = true
-    name                   = aws_api_gateway_domain_name.domain.cloudfront_domain_name
-    zone_id                = aws_api_gateway_domain_name.domain.cloudfront_zone_id
-  }
-}
-
-resource "aws_lambda_permission" "apigw" {
-  statement_id  = "AllowExecutionFromAPIGateway"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.my_lambda.function_name
-  principal     = "apigateway.amazonaws.com"
-
-  # Source arn for API Gateway resource
-  source_arn = "${module.apigateway_v2.apigatewayv2_api_execution_arn}/*/*"
-}
-
 
 ###################
 # REST API Gateway
@@ -135,7 +26,7 @@ resource "aws_api_gateway_resource" "resource" {
 resource "aws_api_gateway_method" "method" {
   rest_api_id   = aws_api_gateway_rest_api.api_gateway.id
   resource_id   = aws_api_gateway_resource.resource.id
-  http_method   = "POST"
+  http_method   = "GET"
   authorization = "NONE"
 }
 
@@ -159,11 +50,116 @@ resource "aws_lambda_permission" "apigw_lambda" {
 }
 
 resource "aws_api_gateway_domain_name" "domain" {
-  certificate_arn = module.walker.acm_certificate_arn
-  domain_name     = "local.walker_name"
+  certificate_arn = module.acm.acm_certificate_arn
+  domain_name     = local.domain_name
 }
+
+resource "aws_api_gateway_deployment" "deployment" {
+  depends_on  = [aws_api_gateway_integration.integration]
+  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_api_gateway_stage" "stage" {
+  stage_name    = "dev"
+  rest_api_id   = aws_api_gateway_rest_api.api_gateway.id
+  deployment_id = aws_api_gateway_deployment.deployment.id
+
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.rest_api_gateway.arn
+    format          = "$context.identity.sourceIp - - [$context.requestTime] \"$context.httpMethod $context.routeKey $context.protocol\" $context.status $context.responseLength $context.requestId $context.integrationErrorMessage"
+  }
+
+  xray_tracing_enabled = true
+}
+
+resource "aws_api_gateway_base_path_mapping" "mapping" {
+  api_id      = aws_api_gateway_rest_api.api_gateway.id
+  stage_name  = aws_api_gateway_stage.stage.stage_name
+  domain_name = aws_api_gateway_domain_name.domain.domain_name
+}
+
+######
+# ACM
+######
+
+resource "aws_route53_zone" "zone" {
+  name = local.domain_name
+}
+
+module "acm" {
+  source  = "terraform-aws-modules/acm/aws"
+  version = "~> 3.0"
+
+  domain_name               = local.domain_name
+  zone_id                   = aws_route53_zone.zone.id
+  subject_alternative_names = ["${local.subdomain}.${local.domain_name}"]
+}
+
+##########
+# Route53
+##########
+
+resource "aws_route53_record" "api_rest" {
+  zone_id = aws_route53_zone.zone.zone_id
+  name    = local.subdomain
+  type    = "A"
+
+  alias {
+    evaluate_target_health = true
+    name                   = aws_api_gateway_domain_name.domain.cloudfront_domain_name
+    zone_id                = aws_api_gateway_domain_name.domain.cloudfront_zone_id
+  }
+}
+
+#############
+# CloudWatch
+#############
 
 resource "aws_cloudwatch_log_group" "rest_api_gateway" {
   name              = "/aws/apigateway/test-rest-api"
   retention_in_days = 7
+}
+
+resource "aws_iam_role" "api_gw_cloudwatch_role" {
+  name = "api_gw_cloudwatch_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "apigateway.amazonaws.com"
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "api_gw_cloudwatch_policy" {
+  name = "default"
+  role = aws_iam_role.api_gw_cloudwatch_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Action = [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:DescribeLogGroups",
+        "logs:DescribeLogStreams",
+        "logs:PutLogEvents",
+        "logs:GetLogEvents",
+        "logs:FilterLogEvents"
+      ]
+      Effect   = "Allow"
+      Resource = "*"
+    }]
+  })
+}
+
+resource "aws_api_gateway_account" "api_gw_account" {
+  cloudwatch_role_arn = aws_iam_role.api_gw_cloudwatch_role.arn
 }
