@@ -1,7 +1,10 @@
-# Module version of above
+data "aws_caller_identity" "current" {}
 locals {
-  domain_name = "cmcloudlab948.info" #trimsuffix(data.aws_route53_zone.this.name, ".")
+  domain_name = "cmcloudlab0626.info" #trimsuffix(data.aws_route53_zone.this.name, ".")
+  walker_name = "acg.aws.misterwalker.co.uk"
   subdomain   = "complete-http"
+  subrest     = "rest"
+  account_id  = data.aws_caller_identity.current.account_id
 }
 
 ###################
@@ -50,6 +53,10 @@ data "aws_route53_zone" "this" {
   name = local.domain_name
 }
 
+data "aws_route53_zone" "mw" {
+  name = local.walker_name
+}
+
 module "acm" {
   source  = "terraform-aws-modules/acm/aws"
   version = "~> 3.0"
@@ -57,6 +64,15 @@ module "acm" {
   domain_name               = local.domain_name
   zone_id                   = data.aws_route53_zone.this.id
   subject_alternative_names = ["${local.subdomain}.${local.domain_name}"]
+}
+
+module "walker" {
+  source  = "terraform-aws-modules/acm/aws"
+  version = "~> 3.0"
+
+  domain_name               = local.walker_name
+  zone_id                   = data.aws_route53_zone.mw.id
+  subject_alternative_names = ["${local.subrest}.${local.walker_name}"]
 }
 
 ##########
@@ -75,6 +91,18 @@ resource "aws_route53_record" "api" {
   }
 }
 
+resource "aws_route53_record" "api_rest" {
+  zone_id = data.aws_route53_zone.mw.zone_id
+  name    = local.subrest
+  type    = "A"
+
+  alias {
+    evaluate_target_health = true
+    name                   = aws_api_gateway_domain_name.domain.cloudfront_domain_name
+    zone_id                = aws_api_gateway_domain_name.domain.cloudfront_zone_id
+  }
+}
+
 resource "aws_lambda_permission" "apigw" {
   statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
@@ -83,4 +111,59 @@ resource "aws_lambda_permission" "apigw" {
 
   # Source arn for API Gateway resource
   source_arn = "${module.apigateway_v2.apigatewayv2_api_execution_arn}/*/*"
+}
+
+
+###################
+# REST API Gateway
+###################
+resource "aws_api_gateway_rest_api" "api_gateway" {
+  name        = "test-rest-api"
+  description = "Test REST API Gateway"
+
+  endpoint_configuration {
+    types = ["REGIONAL"]
+  }
+}
+
+resource "aws_api_gateway_resource" "resource" {
+  rest_api_id = aws_api_gateway_rest_api.api_gateway.id
+  parent_id   = aws_api_gateway_rest_api.api_gateway.root_resource_id
+  path_part   = "test-request"
+}
+
+resource "aws_api_gateway_method" "method" {
+  rest_api_id   = aws_api_gateway_rest_api.api_gateway.id
+  resource_id   = aws_api_gateway_resource.resource.id
+  http_method   = "POST"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "integration" {
+  rest_api_id             = aws_api_gateway_rest_api.api_gateway.id
+  resource_id             = aws_api_gateway_resource.resource.id
+  http_method             = aws_api_gateway_method.method.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.my_lambda.invoke_arn
+}
+
+resource "aws_lambda_permission" "apigw_lambda" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.my_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+
+  # More: http://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-control-access-using-iam-policies-to-invoke-api.html
+  source_arn = "arn:aws:execute-api:us-east-1:${local.account_id}:${aws_api_gateway_rest_api.api_gateway.id}/*/${aws_api_gateway_method.method.http_method}${aws_api_gateway_resource.resource.path}"
+}
+
+resource "aws_api_gateway_domain_name" "domain" {
+  certificate_arn = module.walker.acm_certificate_arn
+  domain_name     = "local.walker_name"
+}
+
+resource "aws_cloudwatch_log_group" "rest_api_gateway" {
+  name              = "/aws/apigateway/test-rest-api"
+  retention_in_days = 7
 }
