@@ -131,13 +131,9 @@ module "acm" {
 resource "aws_route53_record" "api_rest" {
   zone_id = aws_route53_zone.zone.zone_id
   name    = local.subdomain
-  type    = "A"
-
-  alias {
-    evaluate_target_health = true
-    name                   = aws_api_gateway_domain_name.domain.cloudfront_domain_name
-    zone_id                = aws_api_gateway_domain_name.domain.cloudfront_zone_id
-  }
+  type    = "CNAME"
+  ttl     = 300
+  records = [aws_api_gateway_domain_name.domain.regional_domain_name]
 }
 
 #############
