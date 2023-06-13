@@ -50,8 +50,8 @@ resource "aws_lambda_permission" "apigw_lambda" {
 }
 
 resource "aws_api_gateway_domain_name" "domain" {
-  certificate_arn = module.acm.acm_certificate_arn
-  domain_name     = local.domain_name
+  regional_certificate_arn = module.acm.acm_certificate_arn
+  domain_name              = local.domain_name
 }
 
 resource "aws_api_gateway_deployment" "deployment" {
