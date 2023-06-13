@@ -89,6 +89,32 @@ resource "aws_route53_zone" "zone" {
   name = local.domain_name
 }
 
+resource "aws_route53_record" "ns" {
+  allow_overwrite = true
+  name            = local.domain_name
+  ttl             = 172800
+  type            = "NS"
+  zone_id         = aws_route53_zone.zone.zone_id
+
+  records = [
+    "ns-1620.awsdns-10.co.uk",
+    "ns-489.awsdns-61.com",
+    "ns-1134.awsdns-13.org",
+    "ns-552.awsdns-05.net"
+  ]
+}
+
+resource "aws_route53_record" "soa" {
+  allow_overwrite = true
+  name            = local.domain_name
+  ttl             = 900
+  type            = "SOA"
+  zone_id         = aws_route53_zone.zone.zone_id
+
+  records = ["ns-1620.awsdns-10.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400"]
+
+}
+
 module "acm" {
   source  = "terraform-aws-modules/acm/aws"
   version = "~> 3.0"
